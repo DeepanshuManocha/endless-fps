@@ -1,35 +1,25 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// src/App.tsx
+import { Canvas } from "@react-three/fiber";
+import { PointerLockControls, StatsGl } from "@react-three/drei";
+import { Physics } from "@react-three/cannon";
+import Game from "./Game";
+import { config } from "./config";
 
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App() {
+  
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <Canvas shadows camera={{ fov: 75, position: [0, 2, 6] }}>
+       <color attach="background" args={["#202025"]} />
+      <ambientLight intensity={0.5} />
+      <hemisphereLight intensity={0.7} groundColor={"#222"} />
+      <directionalLight position={[10, 12, 6]} intensity={1.2} castShadow />
+      <Physics gravity={config.physics.gravity}>
+        <Game />
+      </Physics>
+      <PointerLockControls />
+      <StatsGl />
+      </Canvas>
+    </div>
+  );
 }
-
-export default App
