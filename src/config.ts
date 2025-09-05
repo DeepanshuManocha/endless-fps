@@ -20,6 +20,19 @@ const raw = {
   walls: { height: 1.2, thickness: 0.3, color: "#444" },
 };
 
+const rawGun = {
+  magazineSize: 8,         // bullets per mag (one round)
+  totalBullets: 32,        // reserve pool at start
+  fireMode: "semi" as "auto" | "semi", // auto = hold to spray; semi = one per click
+  fireRate: 8,             // bullets per second (used only in auto)
+  reloadTime: 1.2,         // time to reload
+  ignoreReload: true,     // if true, instant auto-refill when empty (if reserve > 0 or infinite)
+  infiniteBullets: false,  // if true, show ∞ and never run out
+  bulletSpeed: 30,         // m/s
+  poolSize: 64,            // pooled bullets (max concurrent in-flight)
+};
+
+
 // --- sanitized config with min/max per parameter
 export const config = {
   physics: {
@@ -45,5 +58,16 @@ export const config = {
     height: clamp(raw.walls.height, 0.5, 5),
     thickness: clamp(raw.walls.thickness, 0.1, 2),
     color: raw.walls.color,
+  }, 
+  gun: {
+    magazineSize: clamp(rawGun.magazineSize, 1, 100),
+    totalBullets: clamp(rawGun.totalBullets, 0, 9999),
+    fireMode: rawGun.fireMode,
+    fireRate: clamp(rawGun.fireRate, 1, 50),
+    reloadTime: clamp(rawGun.reloadTime, 0, 10),
+    ignoreReload: !!rawGun.ignoreReload,
+    infiniteBullets: !!rawGun.infiniteBullets,
+    bulletSpeed: clamp(rawGun.bulletSpeed, 5, 200),
+    poolSize: clamp(rawGun.poolSize, 8, 512),
   },
 } as const;

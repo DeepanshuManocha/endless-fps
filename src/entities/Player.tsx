@@ -9,7 +9,11 @@ type V3 = [number, number, number];
 const BODY_RADIUS = 0.4;
 const BODY_HEIGHT = 1.8;
 
-export default function Player() {
+const FIRST_PERSON = true;
+const EYE_HEIGHT = BODY_HEIGHT * config.player.cameraHeightRatio;
+
+export default function Player({ posRef }: { posRef: React.MutableRefObject<[number, number, number]> }) {
+
   const [ref, api] = useCylinder(() => ({
     args: [BODY_RADIUS, BODY_RADIUS, BODY_HEIGHT, 16],
     mass: config.player.mass,
@@ -22,7 +26,10 @@ export default function Player() {
 
   const pos = useRef<V3>([0, BODY_HEIGHT / 2, 0]);
   const vel = useRef<V3>([0, 0, 0]);
-  useEffect(() => api.position.subscribe((p) => (pos.current = p as V3)), [api.position]);
+   useEffect(() => api.position.subscribe((p) => {
+    pos.current = p as V3;
+    posRef.current = p as V3;      // <-- share with Gun
+  }), [api.position, posRef]);
   useEffect(() => api.velocity.subscribe((v) => (vel.current = v as V3)), [api.velocity]);
 
   const input = useRef({ f: false, b: false, l: false, r: false });
@@ -52,26 +59,25 @@ export default function Player() {
   const right = useMemo(() => new Vector3(), []);
   const dir = useMemo(() => new Vector3(), []);
   const camFlatForward = useMemo(() => new Vector3(), []);
-  const lookTarget = useMemo(() => new Vector3(), []);
 
   useFrame(() => {
     const [x, y, z] = pos.current;
 
-    // flat look direction (XZ)
-    camFlatForward.set(0, 0, -1).applyQuaternion(camera.quaternion).setY(0).normalize();
+    if (FIRST_PERSON) {
+      // eye at the player's head; rotation comes from PointerLockControls
+      camera.position.set(x, y + EYE_HEIGHT, z);
+    } else {
+      // old third-person behavior (kept for easy toggle)
+      camFlatForward.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
+      const camBaseY = y + BODY_HEIGHT * config.player.cameraHeightRatio + config.player.camUp;
+      camera.position.set(
+        x - camFlatForward.x * config.player.camBack,
+        camBaseY,
+        z - camFlatForward.z * config.player.camBack
+      );
+    }
 
-    // keep your exact camera position behavior
-    const camBaseY = y + BODY_HEIGHT * config.player.cameraHeightRatio + config.player.camUp;
-    camera.position.set(
-      x - camFlatForward.x * config.player.camBack,
-      camBaseY,
-      z - camFlatForward.z * config.player.camBack
-    );
 
-    // 🔒 lock pitch: look straight ahead at same height (no up/down)
-    lookTarget.copy(camera.position).add(camFlatForward); // straight ahead
-    lookTarget.y = camera.position.y;                     // same height => zero pitch
-    camera.lookAt(lookTarget);
 
     // movement in camera space (already flattened)
     forward.set(0, 0, -1).applyQuaternion(camera.quaternion).setY(0).normalize();
@@ -92,9 +98,10 @@ export default function Player() {
   });
 
   return (
-    <mesh ref={ref} castShadow>
-      <cylinderGeometry args={[BODY_RADIUS, BODY_RADIUS, BODY_HEIGHT, 16]} />
-      <meshStandardMaterial color={config.player.color} />
-    </mesh>
-  );
+  <mesh ref={ref} castShadow visible={!FIRST_PERSON}>
+    <cylinderGeometry args={[BODY_RADIUS, BODY_RADIUS, BODY_HEIGHT, 16]} />
+    <meshStandardMaterial color={config.player.color} />
+  </mesh>
+);
+
 }
