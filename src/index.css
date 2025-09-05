@@ -85,3 +85,41 @@ canvas {
   letter-spacing: 0.5px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
 }
+
+/* App.css additions */
+.menu {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(1200px 800px at 50% 40%, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.8));
+  pointer-events: auto;
+  /* overlay receives clicks */
+}
+
+.menu .panel {
+  background: rgba(20, 20, 24, 0.75);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 28px 32px;
+  text-align: center;
+  color: #eee;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+.menu button {
+  font: inherit;
+  padding: 12px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #4caf50;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.menu button:hover {
+  filter: brightness(1.1);
+}

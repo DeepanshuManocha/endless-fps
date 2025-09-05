@@ -26,7 +26,7 @@ const rawGun = {
   fireMode: "semi" as "auto" | "semi", // auto = hold to spray; semi = one per click
   fireRate: 8,             // bullets per second (used only in auto)
   reloadTime: 1.2,         // time to reload
-  ignoreReload: true,     // if true, instant auto-refill when empty (if reserve > 0 or infinite)
+  ignoreReload: false,     // if true, instant auto-refill when empty (if reserve > 0 or infinite)
   infiniteBullets: false,  // if true, show ∞ and never run out
   bulletSpeed: 30,         // m/s
   poolSize: 64,            // pooled bullets (max concurrent in-flight)

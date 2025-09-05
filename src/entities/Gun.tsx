@@ -9,15 +9,15 @@ import { Vector3, Vector2, Raycaster, Mesh } from "three";
 
 const BULLET_RADIUS = 0.07;
 const BULLET_TTL = 3.0;       // seconds before auto-despawn
-const SPAWN_OFFSET = 0.6;     // meters forward to avoid self-hit
+const SPAWN_OFFSET = 0.6;     // extra forward push from the computed origin
 
 type BulletApi = ReturnType<typeof useSphere>[1];
 type Vec3Tuple = [number, number, number];
 type PlayerPosRef = RefObject<Vec3Tuple> | MutableRefObject<Vec3Tuple>;
 
 type Props = {
-  /** Optional external player position ref: [x, y, z] */
   playerPosRef?: PlayerPosRef;
+  enabled?: boolean;
 };
 
 function Bullet({
@@ -52,15 +52,13 @@ function Bullet({
   );
 }
 
-function Gun({  }: Props) {
+function Gun({ playerPosRef, enabled = true }: Props) {
   const { camera, scene } = useThree();
 
   const raycaster = useMemo(() => new Raycaster(), []);
   const centerNDC = useMemo(() => new Vector2(0, 0), []);
 
-
   const gun = config.gun;
-
 
   // bullet pool
   const N = gun.poolSize;
@@ -125,17 +123,18 @@ function Gun({  }: Props) {
   const setHUD = useGunStore((s) => s.set);
 
   const canFire = () =>
+    enabled &&
     !reloading &&
     (gun.infiniteBullets || mag > 0 || gun.ignoreReload || reserve > 0);
 
   const startReload = () => {
     if (reloading) return;
-    if (gun.ignoreReload) return; // reload irrelevant
+    if (gun.ignoreReload) return;
     if (gun.infiniteBullets) {
-      if (mag >= gun.magazineSize) return; // already full
+      if (mag >= gun.magazineSize) return;
     } else {
-      if (reserve <= 0) return; // nothing to reload from
-      if (mag >= gun.magazineSize) return; // already full
+      if (reserve <= 0) return;
+      if (mag >= gun.magazineSize) return;
     }
 
     setReloading(true);
@@ -158,10 +157,10 @@ function Gun({  }: Props) {
     }, gun.reloadTime * 1000);
   };
 
-    const tryFireOnce = () => {
+  const tryFireOnce = () => {
     if (!canFire()) return;
 
-    // ammo handling (unchanged) …
+    // ammo handling
     if (mag <= 0) {
       if (gun.ignoreReload) {
         if (!gun.infiniteBullets && reserve <= 0) return;
@@ -177,84 +176,80 @@ function Gun({  }: Props) {
         return;
       }
     }
-    // Direction = camera forward
-    camera.getWorldDirection(shootDir).normalize();
 
-    // Camera world position
+    // camera position + forward
     const camPos = new Vector3();
     camera.getWorldPosition(camPos);
-
     const camFwd = new Vector3();
     camera.getWorldDirection(camFwd).normalize();
 
-    // 2) raycast from screen center to find what the crosshair hits
+    // center-screen raycast to pick target point
     raycaster.setFromCamera(centerNDC, camera);
 
-    // (optional) ignore our bullet pool meshes
-    // Build a set of the current bullet meshes
-const bulletMeshes = new Set<Mesh>(meshRefs.current.filter((m): m is Mesh => !!m));
+    // ignore our bullet meshes
+    const bulletMeshes = new Set<Mesh>(meshRefs.current.filter((m): m is Mesh => !!m));
+    const hits = raycaster.intersectObjects(scene.children, true);
+    const firstHit = hits.find(
+      (h) => !(h.object instanceof Mesh && bulletMeshes.has(h.object)) && h.distance > 0.1
+    );
 
-// raycast from center
-raycaster.setFromCamera(centerNDC, camera);
-const hits = raycaster.intersectObjects(scene.children, true);
-
-const firstHit = hits.find(
-  (h) => !(h.object instanceof Mesh && bulletMeshes.has(h.object)) && h.distance > 0.1
-);
-
-    // 3) choose target point (hit or far point straight ahead)
+    // target: crosshair hit or a far point forward
     const target = firstHit
-    ? firstHit.point
-    : camPos.clone().add(camFwd.clone().multiplyScalar(1000));
+      ? firstHit.point
+      : camPos.clone().add(camFwd.clone().multiplyScalar(1000));
 
-    // 4) spawn from the eye, nudged forward to avoid self-collision
-    const ORIGIN_OFFSET = 0.15; // meters in front of the eye
-    spawnPos.copy(camPos).addScaledVector(camFwd, ORIGIN_OFFSET);
+    // spawn from the eye, nudge forward so we don't collide with our own collider
+    const ORIGIN_OFFSET = 0.15;
+    const origin = spawnPos.copy(camPos).addScaledVector(camFwd, ORIGIN_OFFSET);
 
-    // 5) direction from muzzle → target (so bullets converge to the crosshair)
-    shootDir.copy(target).sub(spawnPos).normalize();
+    // direction: origin -> target
+    shootDir.copy(target).sub(origin).normalize();
 
-    if (spawnBullet(spawnPos, shootDir)) {
-    if (!gun.infiniteBullets) setMag(m => Math.max(0, m - 1));
+    if (spawnBullet(origin, shootDir)) {
+      if (!gun.infiniteBullets) setMag((m) => Math.max(0, m - 1));
     }
-
   };
 
   // inputs
   useEffect(() => {
-  const onDown = (e: MouseEvent) => {
-    if (e.button !== 0) return;
-
-    if (gun.fireMode === "semi") {
-      // one shot per click
-      tryFireOnce();
+    if (!enabled) {
+      triggerHeld.current = false;
       return;
     }
 
-    // AUTO: fire immediately on press, then keep spraying at fireRate
-    triggerHeld.current = true;
-    tryFireOnce();
-    timeSinceLastShot.current = 0; // start cadence from now
-  };
+    const onDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
 
-  const onUp = (e: MouseEvent) => {
-    if (e.button === 0) triggerHeld.current = false;
-  };
+      if (gun.fireMode === "semi") {
+        // one shot per click
+        tryFireOnce();
+      } else {
+        // AUTO: fire instantly, then cadence continues in useFrame
+        triggerHeld.current = true;
+        tryFireOnce();
+        timeSinceLastShot.current = 0;
+      }
+    };
 
-  const onKey = (e: KeyboardEvent) => {
-    if (e.code === "KeyR") startReload();
-  };
+    const onUp = (e: MouseEvent) => {
+      if (e.button === 0) triggerHeld.current = false;
+    };
 
-  window.addEventListener("mousedown", onDown);
-  window.addEventListener("mouseup", onUp);
-  window.addEventListener("keydown", onKey);
-  return () => {
-    window.removeEventListener("mousedown", onDown);
-    window.removeEventListener("mouseup", onUp);
-    window.removeEventListener("keydown", onKey);
-  };
-}, [gun.fireMode, gun.reloadTime, gun.ignoreReload, gun.infiniteBullets, mag, reserve, reloading]);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === "KeyR") startReload();
+    };
 
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("keydown", onKey);
+      triggerHeld.current = false;
+    };
+  // ✅ include `enabled` so listeners attach when you click Play
+  }, [enabled, gun.fireMode, gun.reloadTime, gun.ignoreReload, gun.infiniteBullets, mag, reserve, reloading]);
 
   // update HUD when ammo changes
   useEffect(() => {
@@ -266,7 +261,7 @@ const firstHit = hits.find(
     });
   }, [mag, reserve, gun.magazineSize, gun.infiniteBullets, setHUD]);
 
-  // auto-reload when magazine empties and we have ammo/infinite
+  // auto-reload when empty
   useEffect(() => {
     if (!reloading && !gun.ignoreReload && mag <= 0 && (gun.infiniteBullets || reserve > 0)) {
       startReload();
@@ -275,7 +270,7 @@ const firstHit = hits.find(
 
   // auto fire cadence + TTL cleanup
   useFrame((_, dt) => {
-    if (gun.fireMode === "auto" && triggerHeld.current && !reloading) {
+    if (enabled && gun.fireMode === "auto" && triggerHeld.current && !reloading) {
       timeSinceLastShot.current += dt;
       const interval = 1 / gun.fireRate;
       while (timeSinceLastShot.current >= interval) {

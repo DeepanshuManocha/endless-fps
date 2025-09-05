@@ -9,11 +9,7 @@ type V3 = [number, number, number];
 const BODY_RADIUS = 0.4;
 const BODY_HEIGHT = 1.8;
 
-const FIRST_PERSON = true;
-const EYE_HEIGHT = BODY_HEIGHT * config.player.cameraHeightRatio;
-
 export default function Player({ posRef }: { posRef: React.MutableRefObject<[number, number, number]> }) {
-
   const [ref, api] = useCylinder(() => ({
     args: [BODY_RADIUS, BODY_RADIUS, BODY_HEIGHT, 16],
     mass: config.player.mass,
@@ -26,9 +22,10 @@ export default function Player({ posRef }: { posRef: React.MutableRefObject<[num
 
   const pos = useRef<V3>([0, BODY_HEIGHT / 2, 0]);
   const vel = useRef<V3>([0, 0, 0]);
-   useEffect(() => api.position.subscribe((p) => {
+
+  useEffect(() => api.position.subscribe((p) => {
     pos.current = p as V3;
-    posRef.current = p as V3;      // <-- share with Gun
+    posRef.current = p as V3; // share with Gun
   }), [api.position, posRef]);
   useEffect(() => api.velocity.subscribe((v) => (vel.current = v as V3)), [api.velocity]);
 
@@ -59,27 +56,22 @@ export default function Player({ posRef }: { posRef: React.MutableRefObject<[num
   const right = useMemo(() => new Vector3(), []);
   const dir = useMemo(() => new Vector3(), []);
   const camFlatForward = useMemo(() => new Vector3(), []);
+  const lookTarget = useMemo(() => new Vector3(), []);
 
   useFrame(() => {
     const [x, y, z] = pos.current;
 
-    if (FIRST_PERSON) {
-      // eye at the player's head; rotation comes from PointerLockControls
-      camera.position.set(x, y + EYE_HEIGHT, z);
-    } else {
-      // old third-person behavior (kept for easy toggle)
+    // FIRST-PERSON camera: eye at player head
+    const EYE_HEIGHT = BODY_HEIGHT * config.player.cameraHeightRatio;
+    camera.position.set(x, y + EYE_HEIGHT, z);
+
+    // Do NOT override rotation while pointer lock controls are active
+    if (!document.pointerLockElement) {
       camFlatForward.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
-      const camBaseY = y + BODY_HEIGHT * config.player.cameraHeightRatio + config.player.camUp;
-      camera.position.set(
-        x - camFlatForward.x * config.player.camBack,
-        camBaseY,
-        z - camFlatForward.z * config.player.camBack
-      );
+      camera.lookAt(lookTarget.copy(camera.position).add(camFlatForward));
     }
 
-
-
-    // movement in camera space (already flattened)
+    // movement relative to camera (yaw-only)
     forward.set(0, 0, -1).applyQuaternion(camera.quaternion).setY(0).normalize();
     right.set(1, 0, 0).applyQuaternion(camera.quaternion).setY(0).normalize();
 
@@ -97,11 +89,11 @@ export default function Player({ posRef }: { posRef: React.MutableRefObject<[num
     }
   });
 
+  // hide the render mesh (collider still active)
   return (
-  <mesh ref={ref} castShadow visible={!FIRST_PERSON}>
-    <cylinderGeometry args={[BODY_RADIUS, BODY_RADIUS, BODY_HEIGHT, 16]} />
-    <meshStandardMaterial color={config.player.color} />
-  </mesh>
-);
-
+    <mesh ref={ref} castShadow visible={false}>
+      <cylinderGeometry args={[BODY_RADIUS, BODY_RADIUS, BODY_HEIGHT, 16]} />
+      <meshStandardMaterial color={config.player.color} />
+    </mesh>
+  );
 }
