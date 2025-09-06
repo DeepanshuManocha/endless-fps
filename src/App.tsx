@@ -5,7 +5,7 @@ import { Canvas } from "@react-three/fiber";
 import { PointerLockControls, StatsGl } from "@react-three/drei";
 import { Physics } from "@react-three/cannon";
 import Game from "./Game";
-import HUD from "./ui/HuD";
+import HUD from "./ui/HUD";
 import { config } from "./config";
 
 export default function App() {
@@ -13,22 +13,18 @@ export default function App() {
   const [locked, setLocked] = useState(false);
   const controlsRef = useRef<any>(null);
 
-  const start = () => {
-    // 1) Commit 'playing' immediately so PLC is mounted/enabled now
+  const tryLock = () => controlsRef.current?.lock?.();
+
+  const start = (e?: React.PointerEvent | React.MouseEvent) => {
+    e?.stopPropagation?.();
+    // Mount PLC right now so ref exists, then request lock in same gesture
     flushSync(() => setPlaying(true));
-    // 2) Request lock in the SAME gesture
-    controlsRef.current?.lock?.();
-    // Fallback: some browsers are picky—try again next tick if still unlocked
-    queueMicrotask(() => {
-      if (!document.pointerLockElement) controlsRef.current?.lock?.();
+    tryLock();
+    // Fallback: some browsers need a tick
+    requestAnimationFrame(() => {
+      if (!document.pointerLockElement) tryLock();
     });
   };
-
-  const onLock = () => setLocked(true);
-  const onUnlock = () => setLocked(false);
-
-  // Safety net overlay: if we're playing but somehow not locked (e.g. Esc pressed)
-  const needClickToLock = playing && !locked;
 
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
@@ -37,33 +33,54 @@ export default function App() {
         <ambientLight intensity={0.5} />
         <hemisphereLight intensity={0.7} groundColor={"#222"} />
         <directionalLight position={[10, 12, 6]} intensity={1.2} castShadow />
+
         <Physics gravity={config.physics.gravity}>
-          <Game enabled={playing} />
+          <Game enabled={playing} locked={locked} />
         </Physics>
 
-        {/* Keep controls always mounted with a ref */}
-        <PointerLockControls ref={controlsRef} onLock={onLock} onUnlock={onUnlock} />
+        {/* PLC must live inside Canvas */}
+        {playing && (
+          <PointerLockControls
+            ref={controlsRef}
+            onLock={() => setLocked(true)}
+            onUnlock={() => setLocked(false)}
+          />
+        )}
+
         <StatsGl />
       </Canvas>
 
-      {/* Menu */}
+      {/* Start menu (absorbs clicks) */}
       {!playing && (
-        <div className="menu">
+        <div
+          className="menu"
+          onPointerDownCapture={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="panel">
             <h1>My FPS</h1>
-            <button onPointerDown={start}>Play</button>
-            <p className="hint">WASD to move • Mouse to look • Click to shoot</p>
+            <button type="button" onPointerDown={start} onClick={start}>
+              Play
+            </button>
+            <p className="hint">WASD to move • Mouse to look • Left click to shoot</p>
           </div>
         </div>
       )}
 
-      {/* HUD (make sure it's click-through while playing) */}
-      {playing && <HUD />}
+      {/* HUD: crosshair only when pointer is locked */}
+      {playing && <HUD showCrosshair={locked} />}
 
-      {/* Click-catcher if not locked yet (or after pressing Esc) */}
-      {needClickToLock && (
-        <button className="lock-overlay" onPointerDown={() => controlsRef.current?.lock?.()}>
-          Click to capture mouse
+      {/* While playing but not locked, show a simple clickable text hint */}
+      {playing && !locked && (
+        <button
+          className="lock-overlay"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            tryLock();
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          Click to lock
         </button>
       )}
     </div>

@@ -1,3 +1,4 @@
+// src/entities/Player.tsx
 import { useCylinder } from "@react-three/cannon";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
@@ -9,7 +10,13 @@ type V3 = [number, number, number];
 const BODY_RADIUS = 0.4;
 const BODY_HEIGHT = 1.8;
 
-export default function Player({ posRef }: { posRef: React.MutableRefObject<[number, number, number]> }) {
+export default function Player({
+  posRef,
+  active = true,                 // ✅ NEW
+}: {
+  posRef: React.MutableRefObject<[number, number, number]>;
+  active?: boolean;               // ✅ NEW
+}) {
   const [ref, api] = useCylinder(() => ({
     args: [BODY_RADIUS, BODY_RADIUS, BODY_HEIGHT, 16],
     mass: config.player.mass,
@@ -30,6 +37,8 @@ export default function Player({ posRef }: { posRef: React.MutableRefObject<[num
   useEffect(() => api.velocity.subscribe((v) => (vel.current = v as V3)), [api.velocity]);
 
   const input = useRef({ f: false, b: false, l: false, r: false });
+
+  // keyboard listeners unchanged
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.code === "KeyW" || e.code === "ArrowUp") input.current.f = true;
@@ -51,6 +60,15 @@ export default function Player({ posRef }: { posRef: React.MutableRefObject<[num
     };
   }, []);
 
+  // when pausing, clear held inputs so you don't "slide" when resuming
+  useEffect(() => {
+    if (!active) {
+      input.current.f = input.current.b = input.current.l = input.current.r = false;
+      // zero horizontal velocity but keep Y (gravity)
+      api.velocity.set(0, vel.current[1], 0);
+    }
+  }, [active, api.velocity]);
+
   const { camera } = useThree();
   const forward = useMemo(() => new Vector3(), []);
   const right = useMemo(() => new Vector3(), []);
@@ -61,15 +79,18 @@ export default function Player({ posRef }: { posRef: React.MutableRefObject<[num
   useFrame(() => {
     const [x, y, z] = pos.current;
 
-    // FIRST-PERSON camera: eye at player head
+    // FIRST-PERSON camera
     const EYE_HEIGHT = BODY_HEIGHT * config.player.cameraHeightRatio;
     camera.position.set(x, y + EYE_HEIGHT, z);
 
-    // Do NOT override rotation while pointer lock controls are active
+    // Don't override rotation when PLC is active (locked)
     if (!document.pointerLockElement) {
       camFlatForward.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
       camera.lookAt(lookTarget.copy(camera.position).add(camFlatForward));
     }
+
+    // ✅ hard stop while paused
+    if (!active) return;
 
     // movement relative to camera (yaw-only)
     forward.set(0, 0, -1).applyQuaternion(camera.quaternion).setY(0).normalize();
@@ -89,7 +110,7 @@ export default function Player({ posRef }: { posRef: React.MutableRefObject<[num
     }
   });
 
-  // hide the render mesh (collider still active)
+  // collider mesh hidden
   return (
     <mesh ref={ref} castShadow visible={false}>
       <cylinderGeometry args={[BODY_RADIUS, BODY_RADIUS, BODY_HEIGHT, 16]} />
