@@ -1,10 +1,10 @@
-// src/entities/Gun.tsx (or ./Gun.tsx if you keep files at project root)
+// src/Gun.tsx  (adjust paths if your file is elsewhere)
 import { useSphere } from "@react-three/cannon";
 import { useThree, useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { config } from "../config";
-import { useGunStore } from "../store/gunStore";         
+import { useGunStore } from "../store/gunStore";
 import { Vector3, Vector2, Raycaster, Mesh } from "three";
 import { useEnemyStore } from "../store/enemyStore";
 
@@ -35,7 +35,9 @@ export default function Gun({
   const N = gun.poolSize;
 
   // pool state
-  const [bullets, setBullets] = useState(() => Array.from({ length: N }, (_, i) => bulletInit(i)));
+  const [bullets, setBullets] = useState(() =>
+    Array.from({ length: N }, (_, i) => bulletInit(i))
+  );
   const meshRefs = useRef<(Mesh | null)[]>(Array.from({ length: N }, () => null));
   const apis = useRef<(BulletApi | null)[]>(Array.from({ length: N }, () => null));
 
@@ -52,20 +54,21 @@ export default function Gun({
   const [mag, setMag] = useState(gun.magazineSize);
   const [reserve, setReserve] = useState(gun.totalBullets);
   const [reloading, setReloading] = useState(false);
-  const triggerHeld = useRef(false);
+  const triggerHeld = useRef(false);           // for AUTO
+  const semiShootRequested = useRef(false);    // for SEMI (one shot per click)
   const timeSinceLastShot = useRef(0);
 
   const setHUD = useGunStore((s) => s.set);
 
-  // Listen for ammo pickups -> add to current magazine (clamped)
+  // Listen for ammo pickups -> add to RESERVE (total bullets)
   useEffect(() => {
-  const onPickup = (e: Event) => {
-    const amount = (e as CustomEvent).detail?.amount ?? 0;
-    setReserve((r) => r + amount);   // ✅ increment reserve
-  };
-  window.addEventListener("ammo-pickup", onPickup as EventListener);
-  return () => window.removeEventListener("ammo-pickup", onPickup as EventListener);
-}, []);
+    const onPickup = (e: Event) => {
+      const amount = (e as CustomEvent).detail?.amount ?? 0;
+      setReserve((r) => r + amount); // add to reserve, not magazine
+    };
+    window.addEventListener("ammo-pickup", onPickup as EventListener);
+    return () => window.removeEventListener("ammo-pickup", onPickup as EventListener);
+  }, []);
 
   const canFire = () =>
     enabled &&
@@ -94,20 +97,79 @@ export default function Gun({
     }, gun.reloadTime * 1000);
   };
 
-  // fire loop
+  // ================================
+  // INPUTS
+  // ================================
+
+  // Mouse down/up — only depends on enabled + mode, so AUTO won't reset every shot
+  useEffect(() => {
+    if (!enabled) {
+      triggerHeld.current = false;
+      semiShootRequested.current = false;
+      return;
+    }
+    const onDown = () => {
+      if (!enabled) return;
+      if (gun.fireMode === "semi") {
+        semiShootRequested.current = true;   // request a single shot
+      } else {
+        triggerHeld.current = true;          // hold for auto
+      }
+    };
+    const onUp = () => {
+      triggerHeld.current = false;
+      semiShootRequested.current = false;    // (safety; we also clear after firing)
+    };
+
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+      triggerHeld.current = false;
+      semiShootRequested.current = false;
+    };
+  }, [enabled, gun.fireMode]);
+
+  // Reload key — attach with fresh state to avoid stale closure
+  useEffect(() => {
+    if (!enabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === "KeyR") startReload();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    enabled,
+    gun.reloadTime,
+    gun.ignoreReload,
+    gun.infiniteBullets,
+    gun.magazineSize,
+    mag,
+    reserve,
+    reloading,
+  ]);
+
+  // ================================
+  // FIRE LOOP
+  // ================================
   useFrame((_, dt) => {
     if (!enabled) return;
 
     timeSinceLastShot.current += dt;
     const shotDelay = 1 / gun.fireRate;
 
-    const shouldShoot =
-      triggerHeld.current &&
-      canFire() &&
-      timeSinceLastShot.current >= shotDelay;
+    const wantsToShoot =
+      gun.fireMode === "auto" ? triggerHeld.current : semiShootRequested.current;
 
+    const shouldShoot = wantsToShoot && canFire() && timeSinceLastShot.current >= shotDelay;
     if (!shouldShoot) return;
+
     timeSinceLastShot.current = 0;
+    if (gun.fireMode === "semi") {
+      // consume this click-request so SEMI shoots exactly once per click
+      semiShootRequested.current = false;
+    }
 
     // camera position + forward
     const camPos = new Vector3();
@@ -147,45 +209,7 @@ export default function Gun({
     }
   });
 
-  // inputs — reattach when values used by startReload change (avoid stale closures)
-  useEffect(() => {
-    if (!enabled) {
-      triggerHeld.current = false;
-      return;
-    }
-    const onDown = () => {
-      if (!enabled) return;
-      if (gun.fireMode === "semi") {
-        attemptShootOnce();
-      } else {
-        triggerHeld.current = true;
-      }
-    };
-    const onUp = () => { triggerHeld.current = false; };
-    const onKey = (e: KeyboardEvent) => { if (e.code === "KeyR") startReload(); };
-
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("mouseup", onUp);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("keydown", onKey);
-      triggerHeld.current = false;
-    };
-  }, [
-    enabled,
-    gun.fireMode,
-    gun.reloadTime,
-    gun.ignoreReload,
-    gun.infiniteBullets,
-    gun.magazineSize,
-    mag,
-    reserve,
-    reloading,
-  ]);
-
-  // update HUD when ammo changes
+  // HUD
   useEffect(() => {
     setHUD({
       magazine: mag,
@@ -273,11 +297,6 @@ export default function Gun({
     });
   });
 
-  const attemptShootOnce = () => {
-    if (!canFire()) return;
-    timeSinceLastShot.current = 9999; // force immediate fire in next frame
-  };
-
   // render pool
   return (
     <>
@@ -308,7 +327,7 @@ function Bullet({
   }));
 
   useEffect(() => {
-    register(index, ref as unknown as MutableRefObject<Mesh | null>, api);
+    register(index, ref as MutableRefObject<Mesh | null>, api);
   }, [index, ref, api, register]);
 
   return (

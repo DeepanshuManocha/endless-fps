@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Canvas } from "@react-three/fiber";
-import { PointerLockControls, StatsGl } from "@react-three/drei";
+import { PointerLockControls, Stats  } from "@react-three/drei";
 import { Physics } from "@react-three/cannon";
 import Game from "./Game";
 import HUD from "./ui/HUD";
@@ -47,7 +47,7 @@ export default function App() {
           />
         )}
 
-        <StatsGl />
+      <Stats className="fps-fixed" showPanel={0} />
       </Canvas>
 
       {/* Start menu (absorbs clicks) */}

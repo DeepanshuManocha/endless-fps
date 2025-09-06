@@ -140,4 +140,25 @@ canvas {
 
 .lock-overlay:focus {
   outline: none;
+}/* Drei's Stats uses a DOM element with class 'r3f-stats'. Add a fixed class to target it. */
+.r3f-stats.fps-fixed {
+  position: fixed !important;
+  top: 12px;
+  right: 12px;
+  left: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  /* prevent any inherited scaling */
+  width: auto !important;
+  /* let the canvas rule below define size */
+  height: auto !important;
+  z-index: 10000;
+  pointer-events: none;
+  /* don't block UI clicks */
+}
+
+/* Force the internal canvas to a stable pixel size */
+.r3f-stats.fps-fixed canvas {
+  width: 80px !important;
+  height: 48px !important;
 }
