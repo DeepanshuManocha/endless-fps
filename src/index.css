@@ -1,68 +1,175 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  overflow: hidden;
+  background: #111;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+.hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  /* don't block clicks */
+  z-index: 10;
+  color: #fff;
+  font-family: system-ui, sans-serif;
+}
+
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+}
+
+.crosshair .h,
+.crosshair .v {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.crosshair .h {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.crosshair .v {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.ammo {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  text-align: right;
+  font-weight: 600;
+  font-size: 16px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.ammo .sub {
+  opacity: 0.7;
   font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  font-size: 12px;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.reload {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+/* App.css additions */
+.menu {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(1200px 800px at 50% 40%, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.8));
+  pointer-events: auto;
+  /* overlay receives clicks */
+}
+
+.menu .panel {
+  background: rgba(20, 20, 24, 0.75);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 28px 32px;
+  text-align: center;
+  color: #eee;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+.menu button {
+  font: inherit;
+  padding: 12px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #4caf50;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.menu button:hover {
+  filter: brightness(1.1);
+}
+
+.lock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  font: 600 18px/1.2 system-ui, sans-serif;
+  border: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.lock-overlay:focus {
+  outline: none;
+}/* Drei's Stats uses a DOM element with class 'r3f-stats'. Add a fixed class to target it. */
+.r3f-stats.fps-fixed {
+  position: fixed !important;
+  top: 12px;
+  right: 12px;
+  left: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  /* prevent any inherited scaling */
+  width: auto !important;
+  /* let the canvas rule below define size */
+  height: auto !important;
+  z-index: 10000;
+  pointer-events: none;
+  /* don't block UI clicks */
+}
+
+/* Force the internal canvas to a stable pixel size */
+.r3f-stats.fps-fixed canvas {
+  width: 80px !important;
+  height: 48px !important;
+}/* Ensure the Game Over overlay always wins interactions */
+.gameover-overlay {
+  cursor: default;
+  pointer-events: auto;
+  z-index: 9999;
+}
+
+/* Optional: if you have a "click to lock" prompt, hide it while game over is active */
+body.game-over .pointer-lock-prompt,
+body.game-over .lock-overlay {
+  display: none !important;
 }
