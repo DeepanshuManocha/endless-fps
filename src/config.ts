@@ -97,7 +97,7 @@ const raw = {
     bulletsPerPickup: 3,   // how many bullets you get per cube
     size: 0.2,             // cube edge size (visual)
     color: "#ffd54f",
-    lifetime: 3,          // seconds before a cube auto-despawns
+    lifetime: 25,          // seconds before a cube auto-despawns
     collectRadius: 1.2,    // player proximity to collect
     spawnImpulse: 2.5,     // upward impulse
     spawnSpread: 0.6,      // random lateral speed

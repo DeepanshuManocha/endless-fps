@@ -58,7 +58,7 @@ export default function App() {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="panel">
-            <h1>My FPS</h1>
+            <h1>FPS_Endless</h1>
             <button type="button" onPointerDown={start} onClick={start}>
               Play
             </button>
