@@ -16,6 +16,9 @@ const raw = {
     linearDamping: 0.9,
     angularDamping: 1.0,
     cameraHeightRatio: 0.6, // fraction of body height
+    healthMax: 100,       
+    height: 1.8,          
+    hitRadius: 10,
   },
 
   walls: {
@@ -48,7 +51,6 @@ const raw = {
     speed: 20,             // movement speed
     linearDamping: 0.92,
     angularDamping: 1.0,
-
     stopDistance: 6.0,     // ✅ how close to the player they stop
     separationRadius: 2.0, // ✅ distance to keep from each other
     sepStrength: 6.0,      // steering push to separate
@@ -59,6 +61,20 @@ const raw = {
       // collide with default world (0x0001) and bullets (0x0004). Change if needed.
       mask: 0x0001 | 0x0004,
     },
+    fire: {               // ✅ NEW: enemy fire control
+      mode: "single",      // "single" | "burst"
+      interval: 2.5,      // seconds between attacks
+      burstCount: 3,      // if mode = "burst"
+      burstGap: 0.15,     // seconds between shots in a burst
+    },
+  },
+   enemyBullets: {         // ✅ NEW: enemy bullet config
+    poolSize: 200,
+    speed: 35,
+    damage: 15,           // how much health the player loses per hit
+    radius: 0.08,
+    ttl: 4.0,
+    color: "#ff9100",
   },
 
   spaceship: {
@@ -117,6 +133,9 @@ export const config = {
     linearDamping: clamp(rawPlayer.linearDamping, 0, 1),
     angularDamping: clamp(rawPlayer.angularDamping, 0, 1),
     cameraHeightRatio: clamp(rawPlayer.cameraHeightRatio, 0.1, 0.95),
+    healthMax: clamp(rawPlayer.healthMax, 1, 10000),
+    height: clamp(rawPlayer.height, 0.5, 3),
+    hitRadius: clamp(rawPlayer.hitRadius, 0.1, 2),
   },
 
   walls: {
@@ -155,6 +174,21 @@ export const config = {
       group: rawEnemies.collision.group | 0, // ensure number
       mask: rawEnemies.collision.mask | 0,
     },
+    fire: {
+      mode: rawEnemies.fire.mode as "single" | "burst",
+      interval: clamp(rawEnemies.fire.interval, 0.1, 30),
+      burstCount: clamp(rawEnemies.fire.burstCount ?? 1, 1, 20),
+      burstGap: clamp(rawEnemies.fire.burstGap ?? 0.1, 0.05, 2),
+    },
+  },
+
+   enemyBullets: {
+    poolSize: clamp(raw.enemyBullets.poolSize, 1, 1000),
+    speed: clamp(raw.enemyBullets.speed, 1, 200),
+    damage: clamp(raw.enemyBullets.damage, 1, 10000),
+    radius: clamp(raw.enemyBullets.radius, 0.02, 1),
+    ttl: clamp(raw.enemyBullets.ttl, 0.2, 30),
+    color: raw.enemyBullets.color,
   },
 
   spaceship: {

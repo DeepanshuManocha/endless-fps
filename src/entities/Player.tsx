@@ -12,10 +12,10 @@ const BODY_HEIGHT = 1.8;
 
 export default function Player({
   posRef,
-  active = true,                 // ✅ NEW
+  active = true,                 
 }: {
   posRef: React.MutableRefObject<[number, number, number]>;
-  active?: boolean;               // ✅ NEW
+  active?: boolean;               
 }) {
   const [ref, api] = useCylinder(() => ({
     args: [BODY_RADIUS, BODY_RADIUS, BODY_HEIGHT, 16],
@@ -35,6 +35,17 @@ export default function Player({
     posRef.current = p as V3; // share with Gun
   }), [api.position, posRef]);
   useEffect(() => api.velocity.subscribe((v) => (vel.current = v as V3)), [api.velocity]);
+  
+  useEffect(() => {
+    // assuming: const [ref, api] = useCapsule(...) or useSphere/useBox
+    const unsub = api.position.subscribe(([x, y, z]) => {
+      // keep the REF up to date for bullets to read
+      // adjust type if your ref is differently typed
+      // posRef.current as [number, number, number]
+      (posRef.current as any) = [x, y, z];
+    });
+    return () => unsub();
+  }, [api.position, posRef]);
 
   const input = useRef({ f: false, b: false, l: false, r: false });
 
