@@ -102,6 +102,21 @@ const raw = {
     spawnImpulse: 2.5,     // upward impulse
     spawnSpread: 0.6,      // random lateral speed
   },
+  healthPickups: {
+    poolSize: 32,         // how many heart cubes
+    perKillDrops: 0,      // how many hearts to drop per enemy kill (0 = off)
+    healPerPickup: 20,    // HP restored per pickup
+    size: 0.22,
+    color: "#e91e63",
+    lifetime: 25,         // seconds before despawn
+    collectRadius: 1.2,   // pickup distance
+    spawnImpulse: 2.2,
+    spawnSpread: 0.5,
+  },
+  loot: {
+  dropCount: 0.7,     // how many pickups per kill
+  ammoChance: 1,  // 70% chance a drop is ammo; otherwise it's a heart
+},
 };
 
 // --- validated / clamped config exposed to game
@@ -113,6 +128,8 @@ const rawPlayer = raw.player;
 const rawShip = raw.spaceship;
 const rawScore = raw.score;
 const rawPickups = raw.pickups;
+const rawHealth = raw.healthPickups;
+const rawLoot = raw.loot;
 
 export const config = {
   physics: {
@@ -215,4 +232,20 @@ export const config = {
     spawnImpulse: clamp(rawPickups.spawnImpulse, 0, 50),
     spawnSpread: clamp(rawPickups.spawnSpread, 0, 10),
   },
+  healthPickups: {
+    poolSize: clamp(rawHealth.poolSize, 1, 512),
+    perKillDrops: clamp(rawHealth.perKillDrops, 0, 16),
+    healPerPickup: clamp(rawHealth.healPerPickup, 1, 10000),
+    size: clamp(rawHealth.size, 0.05, 2),
+    color: rawHealth.color,
+    lifetime: clamp(rawHealth.lifetime, 1, 300),
+    collectRadius: clamp(rawHealth.collectRadius, 0.2, 5),
+    spawnImpulse: clamp(rawHealth.spawnImpulse, 0, 50),
+    spawnSpread: clamp(rawHealth.spawnSpread, 0, 10),
+  },
+   loot: {
+    dropCount: clamp(rawLoot.dropCount, 0, 10),
+    ammoChance: Math.max(0, Math.min(1, rawLoot.ammoChance ?? 0.7)),
+  },
+
 } as const;

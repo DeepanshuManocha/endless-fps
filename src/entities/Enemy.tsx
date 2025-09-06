@@ -8,6 +8,7 @@ import { config } from "../config";
 import { useEnemyStore, type EnemyHandle } from "../store/enemyStore";
 import { useEnemyBulletStore } from "../store/enemyBulletStore";
 import { useAmmoPickupStore } from "../store/ammoPickupStore";
+import { useHealthPickupStore } from "../store/healthPickupStore";
 
 type V3 = [number, number, number];
 
@@ -108,15 +109,40 @@ export const Enemy = memo(function Enemy({
             diedNow = true;
             aliveRef.current = false;
 
-            // spawn ammo pickups at death position (if pool mounted)
+            // --- DEATH DROPS --------------------------------------------
             if (ref.current) ref.current.getWorldPosition(killPos);
             const y = killPos.y + 0.35; // slightly above ground
-            const drops = Math.max(0, config.pickups.perKillDrops);
-            for (let i = 0; i < drops; i++) {
-              const jx = (Math.random() - 0.5) * 0.4;
-              const jz = (Math.random() - 0.5) * 0.4;
-              useAmmoPickupStore.getState().spawnAt([killPos.x + jx, y, killPos.z + jz]);
+            const jitter = () => ((Math.random() - 0.5) * 0.4);
+
+            if (config.loot.dropCount > 0) {
+              // New loot system: roll each drop as ammo vs heart
+              for (let i = 0; i < config.loot.dropCount; i++) {
+                if (Math.random() < config.loot.ammoChance) {
+                  useAmmoPickupStore
+                    .getState()
+                    .spawnAt([killPos.x + jitter(), y, killPos.z + jitter()]);
+                } else {
+                  useHealthPickupStore
+                    .getState()
+                    .spawnAt([killPos.x + jitter(), y, killPos.z + jitter()]);
+                }
+              }
+            } else {
+              // Fallback to legacy perKillDrops if you set dropCount = 0
+              const ammoDrops = Math.max(0, config.pickups.perKillDrops);
+              for (let i = 0; i < ammoDrops; i++) {
+                useAmmoPickupStore
+                  .getState()
+                  .spawnAt([killPos.x + jitter(), y, killPos.z + jitter()]);
+              }
+              const heartDrops = Math.max(0, config.healthPickups.perKillDrops);
+              for (let i = 0; i < heartDrops; i++) {
+                useHealthPickupStore
+                  .getState()
+                  .spawnAt([killPos.x + jitter(), y, killPos.z + jitter()]);
+              }
             }
+            // -------------------------------------------------------------
 
             setInactive(); // return to pool
             useEnemyStore.getState()._emitKilled(index); // score + spaceship replacement
@@ -252,15 +278,11 @@ export const Enemy = memo(function Enemy({
 
     // aim at player's upper body
     const p = playerPosRef.current;
-    tmp.shotDir.set(
-      p[0] - origin[0],
-      (p[1] + config.player.height * 0.5) - origin[1],
-      p[2] - origin[2]
-    ).normalize();
+    tmp.shotDir
+      .set(p[0] - origin[0], p[1] + config.player.height * 0.5 - origin[1], p[2] - origin[2])
+      .normalize();
 
-    useEnemyBulletStore
-      .getState()
-      .spawn(origin, [tmp.shotDir.x, tmp.shotDir.y, tmp.shotDir.z]);
+    useEnemyBulletStore.getState().spawn(origin, [tmp.shotDir.x, tmp.shotDir.y, tmp.shotDir.z]);
   };
 
   return (

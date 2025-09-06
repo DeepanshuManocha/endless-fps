@@ -9,6 +9,7 @@ type GameStore = {
 
   resetPlayer: () => void;
   damagePlayer: (amount: number) => void;
+  healPlayer: (amount: number) => void;  // ✅ add
   revive: () => void;
 };
 
@@ -17,13 +18,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   playerHealth: config.player.healthMax,
   gameOver: false,
 
-  resetPlayer: () =>
-    set({ playerHealth: get().maxHealth, gameOver: false }),
+  resetPlayer: () => set({ playerHealth: get().maxHealth, gameOver: false }),
 
   damagePlayer: (amount) => {
     const nh = Math.max(0, get().playerHealth - amount);
-    const over = nh <= 0;
-    set({ playerHealth: nh, gameOver: over });
+    set({ playerHealth: nh, gameOver: nh <= 0 });
+  },
+
+  // ✅ clamp to maxHealth (100 by default)
+  healPlayer: (amount) => {
+    const nh = Math.min(get().maxHealth, get().playerHealth + Math.max(0, amount));
+    set({ playerHealth: nh });
   },
 
   revive: () => set({ playerHealth: get().maxHealth, gameOver: false }),

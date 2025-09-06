@@ -10,6 +10,7 @@ import AmmoPickup from "./entities/AmmoPickup";
 import EnemyBullets from "./entities/EnemyBullets";
 import { useGameStore } from "./store/gameStore";
 import { config } from "./config";
+import HealthPickups from "./entities/HealthPickups";
 
 export default function Game({ enabled, locked }: { enabled: boolean; locked: boolean }) {
   const playerPosRef = useRef<[number, number, number]>([0, 1, 0]);
@@ -23,12 +24,12 @@ export default function Game({ enabled, locked }: { enabled: boolean; locked: bo
       <Boundaries />
 
       <Spaceship active={active} />
-      <Enemies playerPosRef={playerPosRef as any} active={active} />
-      <EnemyBullets playerPosRef={playerPosRef as any} />
-      {Array.from({ length: config.pickups.poolSize }).map((_, i) => (
+     <Enemies playerPosRef={playerPosRef as any} active={active} />
+    <EnemyBullets playerPosRef={playerPosRef as any} />
+    {Array.from({ length: config.pickups.poolSize }).map((_, i) => (
         <AmmoPickup key={i} index={i} playerPosRef={playerPosRef as any} />
       ))}
-
+    <HealthPickups playerPosRef={playerPosRef as any} />
       <Player posRef={playerPosRef} active={active} />
       <Gun playerPosRef={playerPosRef} enabled={gunEnabled} />
     </>
