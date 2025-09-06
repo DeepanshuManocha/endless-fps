@@ -161,4 +161,15 @@ canvas {
 .r3f-stats.fps-fixed canvas {
   width: 80px !important;
   height: 48px !important;
+}/* Ensure the Game Over overlay always wins interactions */
+.gameover-overlay {
+  cursor: default;
+  pointer-events: auto;
+  z-index: 9999;
+}
+
+/* Optional: if you have a "click to lock" prompt, hide it while game over is active */
+body.game-over .pointer-lock-prompt,
+body.game-over .lock-overlay {
+  display: none !important;
 }

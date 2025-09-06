@@ -1,4 +1,5 @@
-// src/HUD.tsx
+// HUD.tsx
+import { useEffect } from "react";
 import { useGunStore } from "../store/gunStore";
 import { useEnemyStore } from "../store/enemyStore";
 import { useGameStore } from "../store/gameStore";
@@ -12,21 +13,61 @@ export default function HUD({ showCrosshair = true }: { showCrosshair?: boolean 
   const maxHealth = useGameStore((s) => s.maxHealth);
   const gameOver = useGameStore((s) => s.gameOver);
 
+  // Force-exit pointer lock and block any re-lock while Game Over is visible
+  useEffect(() => {
+    if (!gameOver) return;
+
+    // 1) Make sure pointer lock is OFF so the cursor shows and clicks work
+    try {
+      if (document.pointerLockElement) {
+        document.exitPointerLock?.();
+      }
+    } catch {}
+
+    // 2) Block clicks from bubbling to any "requestPointerLock" handler while Game Over is up
+    const stop = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener("pointerdown", stop, { capture: true });
+    window.addEventListener("mousedown", stop, { capture: true });
+    window.addEventListener("dblclick", stop, { capture: true });
+
+    // 3) If something re-locks (e.g., ESC → click prompt), immediately unlock again
+    const onLockChange = () => {
+      if (gameOver && document.pointerLockElement) {
+        document.exitPointerLock?.();
+      }
+    };
+    document.addEventListener("pointerlockchange", onLockChange);
+
+    // Helper body class for optional CSS
+    document.body.classList.add("game-over");
+
+    return () => {
+      window.removeEventListener("pointerdown", stop, { capture: true } as any);
+      window.removeEventListener("mousedown", stop, { capture: true } as any);
+      window.removeEventListener("dblclick", stop, { capture: true } as any);
+      document.removeEventListener("pointerlockchange", onLockChange);
+      document.body.classList.remove("game-over");
+    };
+  }, [gameOver]);
+
   const replay = () => {
-    // simplest full reset
+    // Easiest full reset of all pools/stores without touching main.tsx
     window.location.reload();
   };
 
   return (
     <div className="hud">
-      {showCrosshair && (
+      {showCrosshair && !gameOver && (
         <div className="crosshair">
           <span className="h" />
           <span className="v" />
         </div>
       )}
 
-      {/* LEFT bottom: Player Health (new) + Score */}
+      {/* LEFT bottom: Player Health + Score */}
       <div
         style={{
           position: "absolute",
@@ -49,7 +90,7 @@ export default function HUD({ showCrosshair = true }: { showCrosshair?: boolean 
         </div>
       </div>
 
-      {/* RIGHT bottom: Ammo */}
+      {/* RIGHT bottom: Ammo + enemy fire info */}
       <div className="ammo">
         <div className="line">
           Gun: {String(magazine).padStart(2, "0")} / {infinite ? "∞" : reserve}
@@ -66,11 +107,12 @@ export default function HUD({ showCrosshair = true }: { showCrosshair?: boolean 
         </div>
       </div>
 
-      {reloading && <div className="reload">Reloading…</div>}
+      {reloading && !gameOver && <div className="reload">Reloading…</div>}
 
-      {/* GAME OVER overlay */}
+      {/* GAME OVER overlay (clickable) */}
       {gameOver && (
         <div
+          className="gameover-overlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -79,7 +121,12 @@ export default function HUD({ showCrosshair = true }: { showCrosshair?: boolean 
             alignItems: "center",
             justifyContent: "center",
             zIndex: 9999,
+            cursor: "default",
           }}
+          // prevent any bubbling back to canvas / lock handlers
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
           <div
             style={{

@@ -114,8 +114,8 @@ const raw = {
     spawnSpread: 0.5,
   },
   loot: {
-  dropCount: 0.7,     // how many pickups per kill
-  ammoChance: 1,  // 70% chance a drop is ammo; otherwise it's a heart
+  dropCount: 1,     // how many pickups per kill
+  ammoChance: 0.7,  // 70% chance a drop is ammo; otherwise it's a heart
 },
 };
 
