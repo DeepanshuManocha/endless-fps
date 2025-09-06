@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import type { Object3D } from "three";
-import { config } from "../config"; // ✅
+import { config } from "../config";
 
 export type EnemyHandle = {
   index: number;
   activate: (pos: [number, number, number]) => void;
-  damage: (amount: number) => boolean;
+  damage: (amount: number) => boolean; // enemy will emit on death
   deactivate: () => void;
   getObject3D: () => Object3D | null;
   isActive: () => boolean;
@@ -15,12 +15,10 @@ type Listener = (index: number) => void;
 
 type EnemyStore = {
   handles: (EnemyHandle | null)[];
-
-  // counts
   kills: number;
-  score: number;                 // ✅ total points
+  score: number;
   resetKills: () => void;
-  resetScore: () => void;        // ✅ optional helper
+  resetScore: () => void;
 
   register: (index: number, handle: EnemyHandle) => void;
   unregister: (index: number) => void;
@@ -37,11 +35,10 @@ type EnemyStore = {
 
 export const useEnemyStore = create<EnemyStore>((set, get) => ({
   handles: [],
-
   kills: 0,
-  score: 0,                               // ✅
+  score: 0,
   resetKills: () => set({ kills: 0 }),
-  resetScore: () => set({ score: 0 }),    // ✅
+  resetScore: () => set({ score: 0 }),
 
   register: (index, handle) => {
     const handles = get().handles.slice();
@@ -56,8 +53,7 @@ export const useEnemyStore = create<EnemyStore>((set, get) => ({
 
   spawnAt: (pos) => {
     const { handles } = get();
-    for (let i = 0; i < handles.length; i++) {
-      const h = handles[i];
+    for (const h of handles) {
       if (h && !h.isActive()) {
         h.activate(pos);
         return true;
@@ -73,23 +69,23 @@ export const useEnemyStore = create<EnemyStore>((set, get) => ({
     return n;
   },
 
+  // route hits; enemy handles death + emit internally
   hitByObject: (obj, damage) => {
-  let cur: Object3D | null = obj;
-  while (cur) {
-    // @ts-ignore
-    const idx = (cur.userData?.enemyIndex ?? cur.userData?.enemyId) as number | undefined;
-    if (typeof idx === "number") {
-      const h = get().handles[idx];
-      if (h) {
-        h.damage(damage);     // the enemy decides & emits once if it dies
-        return true;
+    let cur: Object3D | null = obj;
+    while (cur) {
+      // @ts-ignore
+      const idx = (cur.userData?.enemyIndex ?? cur.userData?.enemyId) as number | undefined;
+      if (typeof idx === "number") {
+        const h = get().handles[idx];
+        if (h) {
+          h.damage(damage);
+          return true;
+        }
       }
+      cur = cur.parent!;
     }
-    cur = cur.parent!;
-  }
-  return false;
-},
-
+    return false;
+  },
 
   onKilled: (fn) => {
     const st = get();
@@ -105,7 +101,6 @@ export const useEnemyStore = create<EnemyStore>((set, get) => ({
   _killedListeners: new Set<Listener>(),
 
   _emitKilled: (index) => {
-    // ✅ bump kills and add points from config
     set((s) => ({
       kills: s.kills + 1,
       score: s.score + config.score.perKill,

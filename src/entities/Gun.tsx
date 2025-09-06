@@ -1,10 +1,10 @@
-// src/entities/Gun.tsx
+// src/entities/Gun.tsx (or ./Gun.tsx if you keep files at project root)
 import { useSphere } from "@react-three/cannon";
 import { useThree, useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { config } from "../config";
-import { useGunStore } from "../store/gunStore";
+import { useGunStore } from "../store/gunStore";         
 import { Vector3, Vector2, Raycaster, Mesh } from "three";
 import { useEnemyStore } from "../store/enemyStore";
 
@@ -56,6 +56,16 @@ export default function Gun({
   const timeSinceLastShot = useRef(0);
 
   const setHUD = useGunStore((s) => s.set);
+
+  // Listen for ammo pickups -> add to current magazine (clamped)
+  useEffect(() => {
+  const onPickup = (e: Event) => {
+    const amount = (e as CustomEvent).detail?.amount ?? 0;
+    setReserve((r) => r + amount);   // ✅ increment reserve
+  };
+  window.addEventListener("ammo-pickup", onPickup as EventListener);
+  return () => window.removeEventListener("ammo-pickup", onPickup as EventListener);
+}, []);
 
   const canFire = () =>
     enabled &&
@@ -137,37 +147,32 @@ export default function Gun({
     }
   });
 
-  // inputs
+  // inputs — reattach when values used by startReload change (avoid stale closures)
   useEffect(() => {
-  if (!enabled) {
-    triggerHeld.current = false;
-    return;
-  }
-
-  const onDown = () => {
-    if (!enabled) return;
-    if (gun.fireMode === "semi") {
-      attemptShootOnce();
-    } else {
-      triggerHeld.current = true;
+    if (!enabled) {
+      triggerHeld.current = false;
+      return;
     }
-  };
+    const onDown = () => {
+      if (!enabled) return;
+      if (gun.fireMode === "semi") {
+        attemptShootOnce();
+      } else {
+        triggerHeld.current = true;
+      }
+    };
+    const onUp = () => { triggerHeld.current = false; };
+    const onKey = (e: KeyboardEvent) => { if (e.code === "KeyR") startReload(); };
 
-  const onUp = () => { triggerHeld.current = false; };
-
-  const onKey = (e: KeyboardEvent) => {
-    if (e.code === "KeyR") startReload(); // uses latest mag/reserve/reloading now
-  };
-
-  window.addEventListener("mousedown", onDown);
-  window.addEventListener("mouseup", onUp);
-  window.addEventListener("keydown", onKey);
-  return () => {
-    window.removeEventListener("mousedown", onDown);
-    window.removeEventListener("mouseup", onUp);
-    window.removeEventListener("keydown", onKey);
-    triggerHeld.current = false;
-  };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("keydown", onKey);
+      triggerHeld.current = false;
+    };
   }, [
     enabled,
     gun.fireMode,
@@ -179,7 +184,6 @@ export default function Gun({
     reserve,
     reloading,
   ]);
-
 
   // update HUD when ammo changes
   useEffect(() => {
@@ -298,13 +302,13 @@ function Bullet({
     mass: 0.01,
     type: "Dynamic",
     position: [0, -999, 0],
-    collisionFilterGroup: 0x0004, // bullet group
-    collisionFilterMask: 0x0001 | 0x0002, // world + enemies
+    collisionFilterGroup: 0x0004,          // bullet group
+    collisionFilterMask: 0x0001 | 0x0002,  // world + enemies
     onCollide: () => onImpact(index),
   }));
 
   useEffect(() => {
-    register(index, ref as MutableRefObject<Mesh | null>, api);
+    register(index, ref as unknown as MutableRefObject<Mesh | null>, api);
   }, [index, ref, api, register]);
 
   return (

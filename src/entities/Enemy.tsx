@@ -1,4 +1,3 @@
-// src/entities/Enemy.tsx
 import { useCylinder } from "@react-three/cannon";
 import { useFrame } from "@react-three/fiber";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
@@ -6,6 +5,7 @@ import type { MutableRefObject } from "react";
 import { Vector3, Object3D } from "three";
 import { config } from "../config";
 import { useEnemyStore, type EnemyHandle } from "../store/enemyStore";
+import { useAmmoPickupStore } from "../store/ammoPickupStore";
 
 type V3 = [number, number, number];
 
@@ -27,14 +27,10 @@ export const Enemy = memo(function Enemy({
   const [active, setActive] = useState(false);
   const [health, setHealth] = useState(0);
 
-  // Wait to LAND before chasing
   const [landed, setLanded] = useState(false);
   const landedRef = useRef(false);
-
-  // ✅ New: imperative alive flag so we can stop double-emits within the same tick
   const aliveRef = useRef(false);
 
-  // physics
   const [ref, api] = useCylinder(() => ({
     args: [ENEMY_RADIUS, ENEMY_RADIUS, ENEMY_HEIGHT, 12],
     mass: enemyCfg.mass,
@@ -47,7 +43,6 @@ export const Enemy = memo(function Enemy({
     collisionFilterMask: enemyCfg.collision.mask,
   }));
 
-  // tag for ray hits
   useEffect(() => {
     if (ref.current) (ref.current as Object3D).userData.enemyIndex = index;
   }, [ref, index]);
@@ -60,10 +55,12 @@ export const Enemy = memo(function Enemy({
     setHealth(0);
     setLanded(false);
     landedRef.current = false;
-    aliveRef.current = false;       // ✅ ensure off
+    aliveRef.current = false;
     api.velocity.set(0,0,0);
     api.position.set(0, -999, 0);
   };
+
+  const killPos = useMemo(() => new Vector3(), []);
 
   const handle: EnemyHandle = useMemo(() => ({
     index,
@@ -72,21 +69,26 @@ export const Enemy = memo(function Enemy({
       setActive(true);
       setLanded(false);
       landedRef.current = false;
-      aliveRef.current = true;      // ✅ mark alive immediately
+      aliveRef.current = true;
       api.position.set(pos[0], pos[1], pos[2]);
       api.velocity.set(0, 0, 0);
     },
-    // ✅ emit kill exactly once using aliveRef
     damage: (amount) => {
-      if (!aliveRef.current) return false; // already dead or deactivated
+      if (!aliveRef.current) return false;
       let diedNow = false;
       setHealth((h) => {
         const nh = h - amount;
         if (nh <= 0 && aliveRef.current) {
           diedNow = true;
-          aliveRef.current = false;        // hard stop further emits
-          setInactive();                   // pool it right away
-          useEnemyStore.getState()._emitKilled(index); // add score & notify ship
+          // read world position for pickups
+          if (ref.current) ref.current.getWorldPosition(killPos);
+          const y = killPos.y + 0.3;
+          for (let i = 0; i < config.pickups.perKillDrops; i++) {
+            useAmmoPickupStore.getState().spawnAt([killPos.x, y, killPos.z]);
+          }
+          aliveRef.current = false;
+          setInactive();
+          useEnemyStore.getState()._emitKilled(index);
           return 0;
         }
         return nh;
@@ -97,7 +99,7 @@ export const Enemy = memo(function Enemy({
     getObject3D: () => ref.current,
     isActive: () => active,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [active, api, ref, enemyCfg.health]);
+  }), [active, api, ref, enemyCfg.health, killPos]);
 
   const register = useEnemyStore((s) => s.register);
   const unregister = useEnemyStore((s) => s.unregister);
@@ -118,31 +120,27 @@ export const Enemy = memo(function Enemy({
   useFrame(() => {
     if (!active) return;
 
-    // position
     if (ref.current) {
       ref.current.getWorldPosition(tmp.toPlayer);
       worldPos.current = [tmp.toPlayer.x, tmp.toPlayer.y, tmp.toPlayer.z];
     }
 
-    // LAND detection
     if (!landedRef.current) {
       const y = worldPos.current[1];
       const vy = vel.current[1];
       const nearGroundHeight = ENEMY_HEIGHT / 2 + 0.08;
-      const slowVertically = Math.abs(vy) < 0.2;
-      if (y <= nearGroundHeight && slowVertically) {
+      const slowVert = Math.abs(vy) < 0.2;
+      if (y <= nearGroundHeight && slowVert) {
         landedRef.current = true;
         setLanded(true);
       }
     }
 
-    // freeze horizontally until landed & enabled
     if (!aiEnabled || !landedRef.current) {
       api.velocity.set(0, vel.current[1], 0);
       return;
     }
 
-    // steering
     const ppos = playerPosRef.current;
     const [ex, , ez] = worldPos.current;
 
@@ -154,7 +152,6 @@ export const Enemy = memo(function Enemy({
       tmp.steer.add(tmp.toPlayer);
     }
 
-    // separation
     const handles = useEnemyStore.getState().handles;
     tmp.sumSep.set(0,0,0);
     let count = 0;
@@ -176,7 +173,6 @@ export const Enemy = memo(function Enemy({
       tmp.steer.add(tmp.sumSep);
     }
 
-    // apply XZ velocity
     if (tmp.steer.lengthSq() > 0.0001) {
       tmp.steer.normalize().multiplyScalar(enemyCfg.speed);
       api.velocity.set(tmp.steer.x, vel.current[1], tmp.steer.z);

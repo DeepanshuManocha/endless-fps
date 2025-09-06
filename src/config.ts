@@ -74,6 +74,18 @@ const raw = {
   score: {
     perKill: 1,   // points awarded for each enemy kill
   },
+
+   pickups: {
+    poolSize: 64,          // how many cubes in the pool
+    perKillDrops: 1,       // how many cubes to spawn per enemy kill
+    bulletsPerPickup: 3,   // how many bullets you get per cube
+    size: 0.2,             // cube edge size (visual)
+    color: "#ffd54f",
+    lifetime: 3,          // seconds before a cube auto-despawns
+    collectRadius: 1.2,    // player proximity to collect
+    spawnImpulse: 2.5,     // upward impulse
+    spawnSpread: 0.6,      // random lateral speed
+  },
 };
 
 // --- validated / clamped config exposed to game
@@ -84,6 +96,7 @@ const rawGround = raw.ground;
 const rawPlayer = raw.player;
 const rawShip = raw.spaceship;
 const rawScore = raw.score;
+const rawPickups = raw.pickups;
 
 export const config = {
   physics: {
@@ -155,5 +168,17 @@ export const config = {
 
   score: {
     perKill: clamp(rawScore.perKill, 1, 10),
+  },
+
+  pickups: {
+    poolSize: clamp(rawPickups.poolSize, 1, 512),
+    perKillDrops: clamp(rawPickups.perKillDrops, 0, 16),
+    bulletsPerPickup: clamp(rawPickups.bulletsPerPickup, 0, 9999),
+    size: clamp(rawPickups.size, 0.05, 2),
+    color: rawPickups.color,
+    lifetime: clamp(rawPickups.lifetime, 1, 300),
+    collectRadius: clamp(rawPickups.collectRadius, 0.2, 5),
+    spawnImpulse: clamp(rawPickups.spawnImpulse, 0, 50),
+    spawnSpread: clamp(rawPickups.spawnSpread, 0, 10),
   },
 } as const;

@@ -1,4 +1,3 @@
-// src/entities/Enemies.tsx
 import { useMemo } from "react";
 import { Enemy } from "./Enemy";
 import type { MutableRefObject } from "react";
@@ -15,8 +14,7 @@ export default function Enemies({
 }) {
   const n = config.enemies.poolSize;
 
-  // ensure store hook runs once
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // touch the store so it initializes
   const _register = useEnemyStore((s) => s.register);
   useMemo(() => {}, [_register]);
 
