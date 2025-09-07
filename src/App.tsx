@@ -7,6 +7,7 @@ import { Physics } from "@react-three/cannon";
 import Game from "./Game";
 import HUD from "./ui/HUD";
 import { config } from "./config";
+import LegendOverlay from "./ui/LegendOverlay";
 
 export default function App() {
   const [playing, setPlaying] = useState(false);
@@ -70,19 +71,8 @@ export default function App() {
       {/* HUD: crosshair only when pointer is locked */}
       {playing && <HUD showCrosshair={locked} />}
 
-      {/* While playing but not locked, show a simple clickable text hint */}
-      {playing && !locked && (
-        <button
-          className="lock-overlay"
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            tryLock();
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          Click to lock
-        </button>
-      )}
+     {/* While playing but not locked, show a simple clickable text hint */}
+     {playing && !locked && <LegendOverlay onLock={tryLock} />}
     </div>
   );
 }
