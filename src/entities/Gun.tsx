@@ -23,13 +23,10 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-export default function Gun({
-  playerPosRef,
-  enabled,
-}: {
-  playerPosRef: MutableRefObject<Vec3Tuple>;
-  enabled: boolean;
-}) {
+export default function Gun(
+  props: { playerPosRef: MutableRefObject<Vec3Tuple>; enabled: boolean }
+) {
+  const { enabled } = props;
   const { scene, camera } = useThree();
   const gun = config.gun;
   const N = gun.poolSize;

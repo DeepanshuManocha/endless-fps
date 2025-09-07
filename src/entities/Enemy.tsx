@@ -32,10 +32,10 @@ export const Enemy = memo(function Enemy({
   const fireCfg = config.enemies.fire;
 
   const [active, setActive] = useState(false);
-  const [health, setHealth] = useState(0);
+  const [, setHealth] = useState(0);
 
   // gates
-  const [landed, setLanded] = useState(false);
+  const [, setLanded] = useState(false);
   const landedRef = useRef(false);
   const aliveRef = useRef(false); // prevent double-death emits in the same tick
 
